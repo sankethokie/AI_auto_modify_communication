@@ -1,9 +1,7 @@
 """
 communication_modifier.py
 
-Demonstration code inspired by the patent:
-"Automatically Modifying Communication Content Using AI Techniques"
-Publication No: 20240330333
+Automatically Modifying Communication Content Using AI
 
 This module shows how an AI system can:
 - analyze user intent
@@ -11,7 +9,6 @@ This module shows how an AI system can:
 - rewrite communication for clarity, persuasion, empathy, or summarization
 - adapt output based on audience type
 
-Fully original implementation (non-patented code).
 """
 
 import re
