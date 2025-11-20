@@ -1,0 +1,156 @@
+"""
+communication_modifier.py
+
+Demonstration code inspired by the patent:
+"Automatically Modifying Communication Content Using AI Techniques"
+Publication No: 20240330333
+
+This module shows how an AI system can:
+- analyze user intent
+- adjust tone
+- rewrite communication for clarity, persuasion, empathy, or summarization
+- adapt output based on audience type
+
+Fully original implementation (non-patented code).
+"""
+
+import re
+from typing import Optional, Dict
+
+class CommunicationModifier:
+    def __init__(self):
+        # Keyword dictionaries for intent detection (simple heuristic)
+        self.intent_keywords = {
+            "summarize": ["summary", "summarize", "short", "brief"],
+            "clarify": ["explain", "clarify", "what do you mean"],
+            "formalize": ["formal", "professional", "business tone"],
+            "soften": ["polite", "soften", "reduce harshness"],
+            "persuade": ["convince", "persuade", "sell"],
+        }
+
+        # Tone templates
+        self.tones = {
+            "formal": ("We would like to inform you that ", ". Kindly acknowledge."),
+            "friendly": ("Hey! Just letting you know that ", ". Let me know if you need anything 😊"),
+            "concise": ("", ""),
+            "empathetic": ("I completely understand how you feel. ", " Please let me know how I can help."),
+        }
+
+    def detect_intent(self, prompt: str) -> Optional[str]:
+        """Heuristic detection of user intent."""
+        p = prompt.lower()
+        for intent, kw_list in self.intent_keywords.items():
+            if any(kw in p for kw in kw_list):
+                return intent
+        return "rewrite"  # default
+
+    def modify_tone(self, text: str, tone: str) -> str:
+        """Adjust tone using predefined templates."""
+        pre, post = self.tones.get(tone, ("", ""))
+        return f"{pre}{text}{post}"
+
+    def summarize(self, text: str) -> str:
+        """Simple heuristic summarizer."""
+        sentences = re.split(r'[.!?]', text)
+        sentences = [s.strip() for s in sentences if len(s.strip()) > 0]
+
+        if len(sentences) == 0:
+            return text
+
+        # Heuristic: pick first and most information-dense sentence
+        summary = sentences[0]
+        for s in sentences[1:]:
+            if len(s.split()) > 8 and len(s.split()) < len(summary.split()):
+                summary = s
+
+        return summary
+
+    def clarify(self, text: str) -> str:
+        """Clarify by simplifying long sentences."""
+        words = text.split()
+        if len(words) <= 12:
+            return text
+
+        midpoint = len(words) // 2
+        return f"{' '.join(words[:midpoint])}. In other words, {' '.join(words[midpoint:])}"
+
+    def formalize(self, text: str) -> str:
+        """Basic formalization using replacements."""
+        replacements = {
+            "can't": "cannot",
+            "don't": "do not",
+            "thanks": "thank you",
+            "hey": "hello",
+            "ok": "acknowledged",
+        }
+        for k, v in replacements.items():
+            text = text.replace(k, v)
+        return text.capitalize()
+
+    def soften(self, text: str) -> str:
+        """Reduce harsh tone."""
+        return (
+            "I appreciate your perspective. "
+            + text.replace("must", "may need to").replace("wrong", "not fully aligned")
+        )
+
+    def rewrite(self, text: str, tone="formal") -> str:
+        """General rewrite + tone smoothing."""
+        return self.modify_tone(text, tone)
+
+    # -----------------------------
+    #    MAIN PROCESSING ENGINE
+    # -----------------------------
+    def modify_message(self, message: str, intent: Optional[str] = None, tone: str = "formal",
+                       audience: str = "general") -> Dict[str, str]:
+        """
+        Full content modification pipeline.
+        """
+        detected = intent or self.detect_intent(message)
+
+        if detected == "summarize":
+            output = self.summarize(message)
+        elif detected == "clarify":
+            output = self.clarify(message)
+        elif detected == "formalize":
+            output = self.formalize(message)
+        elif detected == "soften":
+            output = self.soften(message)
+        elif detected == "persuade":
+            output = f"Here is why this matters: {message}. It will greatly benefit you because..."
+        else:
+            output = self.rewrite(message, tone)
+
+        # Audience-specific adjustment
+        if audience == "technical":
+            output += " (Technical audience – assumptions: domain knowledge present.)"
+        elif audience == "business":
+            output += " (Business audience – focused on value and outcomes.)"
+
+        return {
+            "intent_used": detected,
+            "tone_used": tone,
+            "audience_used": audience,
+            "output_text": output
+        }
+
+
+# -----------------------------
+# Example usage
+# -----------------------------
+if __name__ == "__main__":
+    engine = CommunicationModifier()
+
+    text = "Can you summarize this long explanation about how AI modifies user communication automatically using dynamic tone adjustment?"
+
+    result = engine.modify_message(
+        text,
+        tone="friendly",
+        audience="business"
+    )
+
+    print("=== AI Communication Modifier ===")
+    print("Intent:", result["intent_used"])
+    print("Tone:", result["tone_used"])
+    print("Audience:", result["audience_used"])
+    print("Output:", result["output_text"])
