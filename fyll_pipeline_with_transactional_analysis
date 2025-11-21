@@ -1,0 +1,143 @@
+import re
+from typing import Dict, Any
+
+# ---------------------------------------------------------
+# 1. UTILITY: Simple rule-based Ego State Classifier (TA)
+# ---------------------------------------------------------
+def classify_ego_state(text: str) -> str:
+    text = text.lower()
+
+    parent_patterns = [
+        r"\byou should\b", r"\byou must\b", r"\balways\b", r"\bnever\b"
+    ]
+    adult_patterns = [
+        r"\blet's analyze\b", r"\bdata shows\b", r"\bthe fact is\b",
+        r"\bbased on evidence\b"
+    ]
+    child_patterns = [
+        r"\bi feel\b", r"\bi want\b", r"\bi don't like\b",
+        r"\bthis is unfair\b"
+    ]
+
+    for p in parent_patterns:
+        if re.search(p, text):
+            return "Parent"
+    for p in adult_patterns:
+        if re.search(p, text):
+            return "Adult"
+    for p in child_patterns:
+        if re.search(p, text):
+            return "Child"
+
+    return "Adult"   # default
+
+
+# ---------------------------------------------------------
+# 2. DETERMINE TYPE OF TRANSACTION (complementary, crossed)
+# ---------------------------------------------------------
+def determine_transaction(sender_ego: str, receiver_ego: str) -> str:
+    # Complementary = sender to receiver + receiver to sender on parallel lines
+    if sender_ego == "Adult" and receiver_ego == "Adult":
+        return "Complementary"
+    if sender_ego == "Parent" and receiver_ego == "Child":
+        return "Complementary"
+    if sender_ego == "Child" and receiver_ego == "Parent":
+        return "Complementary"
+
+    # Otherwise Crossed
+    return "Crossed"
+
+
+# ---------------------------------------------------------
+# 3. BROKEN TRANSACTION DETECTOR
+# ---------------------------------------------------------
+def detect_broken_transaction(prev_reply: str, reply: str) -> bool:
+    """
+    A simple rupture rule:
+    - Sudden tone shift
+    - ego mismatch growing
+    - contradiction indicators
+    """
+
+    prev_ego = classify_ego_state(prev_reply)
+    curr_ego = classify_ego_state(reply)
+
+    if prev_ego != curr_ego:
+        return True  # obvious rupture/mismatch
+
+    contradiction_markers = ["that's wrong", "you are mistaken", "i disagree strongly"]
+
+    if any(marker in reply.lower() for marker in contradiction_markers):
+        return True
+
+    return False
+
+
+# ---------------------------------------------------------
+# 4. DYNAMIC TONE / COMMUNICATION MODIFIER
+# ---------------------------------------------------------
+def modify_communication(text: str,
+                         target_intent: str = "explain",
+                         target_tone: str = "friendly",
+                         target_audience: str = "business") -> str:
+    """
+    This imitates your patent’s content modification step.
+    """
+
+    if target_tone == "friendly":
+        text = "🙂 " + text.replace("!", ".").replace("?", "?")
+
+    if target_audience == "business":
+        text = text.replace("I think", "The analysis indicates that")
+
+    if target_intent == "summarize":
+        # naive summarization
+        sentences = text.split(".")
+        text = sentences[0] if sentences else text
+
+    return text.strip()
+
+
+# ---------------------------------------------------------
+# 5. FULL PIPELINE: MODIFY + TA ANALYSIS
+# ---------------------------------------------------------
+def process_message(user_input: str, prev_ai_reply: str = None) -> Dict[str, Any]:
+    user_ego = classify_ego_state(user_input)
+
+    # Simple placeholder for AI reply (you can put your LLM here)
+    ai_raw_reply = f"I understand. Let me analyze this for you: {user_input}"
+
+    ai_ego = classify_ego_state(ai_raw_reply)
+    transaction_type = determine_transaction(user_ego, ai_ego)
+
+    broken_flag = False
+    if prev_ai_reply:
+        broken_flag = detect_broken_transaction(prev_ai_reply, ai_raw_reply)
+
+    modified_reply = modify_communication(
+        ai_raw_reply,
+        target_intent="summarize",
+        target_tone="friendly",
+        target_audience="business"
+    )
+
+    return {
+        "user_ego_state": user_ego,
+        "ai_ego_state": ai_ego,
+        "transaction_type": transaction_type,
+        "broken_transaction": broken_flag,
+        "raw_ai_reply": ai_raw_reply,
+        "modified_ai_reply": modified_reply
+    }
+
+
+# ---------------------------------------------------------
+# 6. Example Run
+# ---------------------------------------------------------
+if __name__ == "__main__":
+    user = "You should do this correctly from now on!"
+    prev_ai = "Let’s analyze this with available information."
+
+    result = process_message(user, prev_ai_reply=prev_ai)
+    for k, v in result.items():
+        print(f"{k}: {v}")
